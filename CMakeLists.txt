@@ -56,6 +56,24 @@ if (MSVC)
     add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/bigobj>")
 endif()
 
+# -DSAM_FORCE_FFN_Q4_0=ON
+option(SAM_FORCE_FFN_Q4_0 "Force quantization schemes of FFN layers to Q4_0" OFF)
+if (SAM_FORCE_FFN_Q4_0)
+    message(STATUS "Force quantization schemes of FFN layers to Q4_0")
+    add_compile_definitions(SAM_FFN_DOWN_Q4_0)
+    add_compile_definitions(SAM_FFN_GATE_Q4_0)
+    add_compile_definitions(SAM_FFN_UP_Q4_0)
+endif()
+
+# -DSAM_FORCE_FFN_IQ4_NL=ON
+option(SAM_FORCE_FFN_IQ4_NL "Force quantization schemes of FFN layers to IQ4_NL" OFF)
+if (SAM_FORCE_FFN_IQ4_NL)
+    message(STATUS "Force quantization schemes of FFN layers to IQ4_NL")
+    add_compile_definitions(SAM_FFN_DOWN_IQ4_NL)
+    add_compile_definitions(SAM_FFN_GATE_IQ4_NL)
+    add_compile_definitions(SAM_FFN_UP_IQ4_NL)
+endif()
+
 #
 # option list
 #

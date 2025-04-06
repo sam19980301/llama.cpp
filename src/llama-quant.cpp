@@ -310,6 +310,14 @@ static ggml_type llama_tensor_get_type(quantize_state_impl & qs, ggml_type new_t
             // same quantization as before imatrix stuff, and b) Q4_1/Q5_1 do go crazy on ffn_down without an imatrix.
             new_type = ftype == LLAMA_FTYPE_MOSTLY_Q4_0 ? GGML_TYPE_Q4_1 : GGML_TYPE_Q5_1;
         }
+#if defined(SAM_FFN_DOWN_Q4_0)
+#pragma message("SAM_FFN_DOWN_Q4_0 is enabled")
+        new_type = GGML_TYPE_Q4_0;
+#endif
+#if defined(SAM_FFN_DOWN_IQ4_NL)
+#pragma message("SAM_FFN_DOWN_IQ4_NL is enabled")
+        new_type = GGML_TYPE_IQ4_NL;
+#endif
         ++qs.i_ffn_down;
     } else if (name.find("attn_output.weight") != std::string::npos) {
         if (arch != LLM_ARCH_FALCON) {
@@ -344,6 +352,14 @@ static ggml_type llama_tensor_get_type(quantize_state_impl & qs, ggml_type new_t
         if (ftype == LLAMA_FTYPE_MOSTLY_IQ3_XS && (i_layer >= n_layer/8 && i_layer < 7*n_layer/8)) {
             new_type = GGML_TYPE_IQ3_XXS;
         }
+#if defined(SAM_FFN_GATE_Q4_0)
+#pragma message("SAM_FFN_GATE_Q4_0 is enabled")
+        new_type = GGML_TYPE_Q4_0;
+#endif
+#if defined(SAM_FFN_GATE_IQ4_NL)
+#pragma message("SAM_FFN_GATE_IQ4_NL is enabled")
+        new_type = GGML_TYPE_IQ4_NL;
+#endif
         ++qs.i_ffn_gate;
     }
     else if (name.find("ffn_up") != std::string::npos) {
@@ -352,6 +368,14 @@ static ggml_type llama_tensor_get_type(quantize_state_impl & qs, ggml_type new_t
         if (ftype == LLAMA_FTYPE_MOSTLY_IQ3_XS && (i_layer >= n_layer/8 && i_layer < 7*n_layer/8)) {
             new_type = GGML_TYPE_IQ3_XXS;
         }
+#if defined(SAM_FFN_UP_Q4_0)
+#pragma message("SAM_FFN_UP_Q4_0 is enabled")
+        new_type = GGML_TYPE_Q4_0;
+#endif
+#if defined(SAM_FFN_UP_IQ4_NL)
+#pragma message("SAM_FFN_UP_IQ4_NL is enabled")
+        new_type = GGML_TYPE_IQ4_NL;
+#endif
         ++qs.i_ffn_up;
     }
 
