@@ -56,6 +56,12 @@ if (MSVC)
     add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/bigobj>")
 endif()
 
+# -DSAM_BLOCK_SIZE=256
+if (DEFINED SAM_BLOCK_SIZE)
+    message(STATUS "SAM_BLOCK_SIZE is set to ${SAM_BLOCK_SIZE}")
+    add_compile_definitions(SAM_BLOCK_SIZE=${SAM_BLOCK_SIZE})
+endif()
+
 # -DSAM_FORCE_FFN_Q4_0=ON
 option(SAM_FORCE_FFN_Q4_0 "Force quantization schemes of FFN layers to Q4_0" OFF)
 if (SAM_FORCE_FFN_Q4_0)

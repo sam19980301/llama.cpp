@@ -27,23 +27,45 @@
 
 #define UNUSED GGML_UNUSED
 
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
+
+#if (QK4_0 != QK4_NL) || (QK4_0 != QK8_0)
+    #error "QK4_0, QK4_NL, and QK8_0 must be some!"    
+#endif
+
+#ifndef SAM_BLOCK_SIZE
+#   define SAM_BLOCK_SIZE QK4_0
+#   pragma message("SAM_BLOCK_SIZE is not defined, set to " TOSTRING(SAM_BLOCK_SIZE))
+#elif SAM_BLOCK_SIZE == -1
+#   pragma message("SAM_BLOCK_SIZE is defined, set to row size")
+#else
+#   pragma message("SAM_BLOCK_SIZE is defined, set to " TOSTRING(SAM_BLOCK_SIZE))
+#endif
+
 // reference implementation for deterministic creation of model files
 void quantize_row_q4_0_ref(const float * GGML_RESTRICT x, block_q4_0 * GGML_RESTRICT y, int64_t k) {
-    static const int qk = QK4_0;
+    static const int qk = QK4_0;                                // gguf format block size
+    const int qb = (SAM_BLOCK_SIZE > 0) ? SAM_BLOCK_SIZE : k;   // actual block size
 
     assert(k % qk == 0);
+    assert(qb % qk == 0);
 
     const int nb = k / qk;
 
+    float amax = 0.0f; // absolute max
+    float max  = 0.0f;
     for (int i = 0; i < nb; i++) {
-        float amax = 0.0f; // absolute max
-        float max  = 0.0f;
+        if (i % (qb / qk) == 0) {
+            amax = 0.0f;
+            max  = 0.0f;        
 
-        for (int j = 0; j < qk; j++) {
-            const float v = x[i*qk + j];
-            if (amax < fabsf(v)) {
-                amax = fabsf(v);
-                max  = v;
+            for (int j = 0; j < qb; j++) {
+                const float v = x[i*qk + j];
+                if (amax < fabsf(v)) {
+                    amax = fabsf(v);
+                    max  = v;
+                }
             }
         }
 
@@ -192,15 +214,23 @@ void quantize_row_q5_1_ref(const float * GGML_RESTRICT x, block_q5_1 * GGML_REST
 
 // reference implementation for deterministic creation of model files
 void quantize_row_q8_0_ref(const float * GGML_RESTRICT x, block_q8_0 * GGML_RESTRICT y, int64_t k) {
-    assert(k % QK8_0 == 0);
-    const int nb = k / QK8_0;
+    static const int qk = QK8_0;                                // gguf format block size
+    const int qb = (SAM_BLOCK_SIZE > 0) ? SAM_BLOCK_SIZE : k;   // actual block size
 
+    assert(k % qk == 0);
+    assert(qb % qk == 0);
+
+    const int nb = k / qk;
+
+    float amax = 0.0f; // absolute max
     for (int i = 0; i < nb; i++) {
-        float amax = 0.0f; // absolute max
-
-        for (int j = 0; j < QK8_0; j++) {
-            const float v = x[i*QK8_0 + j];
-            amax = MAX(amax, fabsf(v));
+        if (i % (qb / qk) == 0) {
+            amax = 0.0f;
+            
+            for (int j = 0; j < qb; j++) {
+                const float v = x[i*qk + j];
+                amax = MAX(amax, fabsf(v));
+            }    
         }
 
         const float d = amax / ((1 << 7) - 1);
@@ -208,8 +238,8 @@ void quantize_row_q8_0_ref(const float * GGML_RESTRICT x, block_q8_0 * GGML_REST
 
         y[i].d = GGML_FP32_TO_FP16(d);
 
-        for (int j = 0; j < QK8_0; ++j) {
-            const float x0 = x[i*QK8_0 + j]*id;
+        for (int j = 0; j < qk; ++j) {
+            const float x0 = x[i*qk + j]*id;
 
             y[i].qs[j] = roundf(x0);
         }
@@ -253,14 +283,21 @@ void quantize_row_q8_1_ref(const float * GGML_RESTRICT x, block_q8_1 * GGML_REST
 }
 
 void dequantize_row_q4_0(const block_q4_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
-    static const int qk = QK4_0;
+    static const int qk = QK4_0;                                // gguf format block size
+    const int qb = (SAM_BLOCK_SIZE > 0) ? SAM_BLOCK_SIZE : k;   // actual block size
 
     assert(k % qk == 0);
+    assert(qb % qk == 0);
 
     const int nb = k / qk;
 
     for (int i = 0; i < nb; i++) {
         const float d = GGML_FP16_TO_FP32(x[i].d);
+        if (i % (qb / qk) == 0) {
+            for (int j = 0; j < qb/qk; j++) {
+                assert (d == GGML_FP16_TO_FP32(x[i+j].d));
+            }
+        }
 
         for (int j = 0; j < qk/2; ++j) {
             const int x0 = (x[i].qs[j] & 0x0F) - 8;
@@ -347,14 +384,21 @@ void dequantize_row_q5_1(const block_q5_1 * GGML_RESTRICT x, float * GGML_RESTRI
 }
 
 void dequantize_row_q8_0(const block_q8_0 * GGML_RESTRICT x, float * GGML_RESTRICT y, int64_t k) {
-    static const int qk = QK8_0;
+    static const int qk = QK8_0;                                // gguf format block size
+    const int qb = (SAM_BLOCK_SIZE > 0) ? SAM_BLOCK_SIZE : k;   // actual block size
 
     assert(k % qk == 0);
+    assert(qb % qk == 0);
 
     const int nb = k / qk;
 
     for (int i = 0; i < nb; i++) {
         const float d = GGML_FP16_TO_FP32(x[i].d);
+        if (i % (qb / qk) == 0) {
+            for (int j = 0; j < qb/qk; j++) {
+                assert (d == GGML_FP16_TO_FP32(x[i+j].d));
+            }
+        }
 
         for (int j = 0; j < qk; ++j) {
             y[i*qk + j] = x[i].qs[j]*d;
@@ -1826,6 +1870,7 @@ static void quantize_row_q4_0_impl(const float * GGML_RESTRICT x, block_q4_0 * G
         return;
     }
 
+    // TODO: support SAM_BLOCK_SIZE
     float weight[QK4_0];
     int8_t L[QK4_0];
 
