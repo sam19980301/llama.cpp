@@ -28,6 +28,7 @@
     { "name": "release",  "hidden": true, "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" } },
     { "name": "reldbg",   "hidden": true, "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" } },
     { "name": "static",   "hidden": true, "cacheVariables": { "GGML_STATIC":      "ON" } },
+    { "name": "ncp",      "hidden": true, "cacheVariables": { "GGML_METAL":       "OFF", "GGML_NCP": "ON" } },
     { "name": "sycl_f16", "hidden": true, "cacheVariables": { "GGML_SYCL_F16":    "ON" } },
     { "name": "vulkan",   "hidden": true, "cacheVariables": { "GGML_VULKAN":      "ON" } },
 
@@ -74,6 +75,10 @@
     { "name": "arm64-apple-clang-debug", "inherits": [ "base", "arm64-apple-clang", "debug" ] },
     { "name": "arm64-apple-clang-release", "inherits": [ "base", "arm64-apple-clang", "reldbg" ] },
     { "name": "arm64-apple-clang+static-release", "inherits": [ "base", "arm64-apple-clang",  "reldbg", "static" ] },
+
+    { "name": "arm64-ncp-clang-debug", "inherits": [ "arm64-apple-clang-debug", "ncp" ] },
+    { "name": "arm64-ncp-clang-release", "inherits": [ "arm64-apple-clang-release", "ncp" ] },
+    { "name": "arm64-ncp-clang+static-release", "inherits": [ "arm64-apple-clang+static-release",  "ncp" ] },
 
     { "name": "x64-windows-llvm-debug", "inherits": [ "base", "x64-windows-llvm", "debug" ] },
     { "name": "x64-windows-llvm-release", "inherits": [ "base", "x64-windows-llvm", "release" ] },
