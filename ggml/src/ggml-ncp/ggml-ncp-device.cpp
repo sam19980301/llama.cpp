@@ -52,9 +52,20 @@ void ggml_ncp_device_get_memory(ggml_ncp_device_t dev, size_t * free, size_t * t
 }
 
 bool ggml_ncp_device_supports_op(ggml_ncp_device_t dev, const struct ggml_tensor * op) {
-    // TODO(sam)
     switch (op->op) {
+        case GGML_OP_ADD:
+        case GGML_OP_MUL:
         case GGML_OP_RMS_NORM:
+        case GGML_OP_MUL_MAT:
+        case GGML_OP_CONT:
+        case GGML_OP_RESHAPE:
+        case GGML_OP_VIEW:
+        case GGML_OP_PERMUTE:
+        case GGML_OP_GET_ROWS:
+        case GGML_OP_SET_ROWS:
+        case GGML_OP_ROPE:
+        case GGML_OP_SOFT_MAX:
+        case GGML_OP_GLU:
             return true;
         default:
             return false;
