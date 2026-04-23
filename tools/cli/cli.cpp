@@ -1,5 +1,6 @@
 #include "chat.h"
 #include "common.h"
+#include "debug.h"
 #include "arg.h"
 #include "console.h"
 // #include "log.h"
@@ -364,6 +365,15 @@ int main(int argc, char ** argv) {
 
     llama_backend_init();
     llama_numa_init(params.numa);
+    
+    /*
+    // pass the callback to the backend scheduler
+    // it will be executed for each node during the graph computation
+    base_callback_data cb_data;
+    params.cb_eval = common_debug_cb_eval<false>;
+    params.cb_eval_user_data = &cb_data;
+    params.warmup = false;
+    */
 
     // TODO: avoid using atexit() here by making `console` a singleton
     console::init(params.simple_io, params.use_color);

@@ -144,6 +144,7 @@ struct mtmd_cli_context {
         mparams.image_min_tokens = params.image_min_tokens;
         mparams.image_max_tokens = params.image_max_tokens;
         if (std::getenv("MTMD_DEBUG_GRAPH") != nullptr) {
+            // callback for mtmd's mmproj
             mparams.cb_eval_user_data = &cb_data;
             mparams.cb_eval = common_debug_cb_eval<false>;
         }
@@ -294,6 +295,13 @@ int main(int argc, char ** argv) {
         LOG_ERR("ERR: Missing --mmproj argument\n");
         return 1;
     }
+
+    /*
+    // callback for mtmd's language model
+    base_callback_data cb_data;
+    params.cb_eval = common_debug_cb_eval<false>;
+    params.cb_eval_user_data = &cb_data;
+    */
 
     mtmd_cli_context ctx(params);
     LOG_INF("%s: loading model: %s\n", __func__, params.model.path.c_str());
