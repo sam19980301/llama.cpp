@@ -131,6 +131,8 @@ template <bool abort_on_nan> bool common_debug_cb_eval(struct ggml_tensor * t, b
     const struct ggml_tensor * src0 = t->src[0];
     const struct ggml_tensor * src1 = t->src[1];
     const struct ggml_tensor * src2 = t->src[2];
+    const struct ggml_tensor * src3 = t->src[3];
+    const struct ggml_tensor * src4 = t->src[4];
 
     if (ask) {
         return true;  // Always retrieve data
@@ -167,13 +169,25 @@ template <bool abort_on_nan> bool common_debug_cb_eval(struct ggml_tensor * t, b
         snprintf(src2_str, sizeof(src2_str), "%s{%s}{%s}(%s)", src2->name, common_ggml_ne_string(src2).c_str(), common_ggml_nb_string(src2).c_str(), ggml_type_name(src2->type));
     }
 
+    char src3_str[128] = { 0 };
+    if (src3) {
+        snprintf(src3_str, sizeof(src3_str), "%s{%s}{%s}(%s)", src3->name, common_ggml_ne_string(src3).c_str(), common_ggml_nb_string(src3).c_str(), ggml_type_name(src3->type));
+    }
+
+    char src4_str[128] = { 0 };
+    if (src4) {
+        snprintf(src4_str, sizeof(src4_str), "%s{%s}{%s}(%s)", src4->name, common_ggml_ne_string(src4).c_str(), common_ggml_nb_string(src4).c_str(), ggml_type_name(src4->type));
+    }
+
     std::string params_str;
     if (
         t->op == GGML_OP_ADD ||
         t->op == GGML_OP_MUL ||
         t->op == GGML_OP_MUL_MAT ||
+        t-> op == GGML_OP_CPY ||
         t->op == GGML_OP_CONT ||
         t->op == GGML_OP_RESHAPE ||
+        t->op == GGML_OP_TRANSPOSE ||
         t->op == GGML_OP_GET_ROWS ||
         t->op == GGML_OP_SET_ROWS ||
         t->op == GGML_OP_UNARY
@@ -282,6 +296,19 @@ template <bool abort_on_nan> bool common_debug_cb_eval(struct ggml_tensor * t, b
         params_str += "rp3: " +      std::to_string(rp3) + ";";
         params_str += "circular: " + std::to_string(circular);
     }
+    else if (t->op == GGML_OP_FLASH_ATTN_EXT) {
+        float scale         = 1.0f;
+        float max_bias      = 0.0f;
+        float logit_softcap = 0.0f;
+        memcpy(&scale,         (float *) t->op_params + 0, sizeof(float));
+        memcpy(&max_bias,      (float *) t->op_params + 1, sizeof(float));
+        memcpy(&logit_softcap, (float *) t->op_params + 2, sizeof(float));
+        const int32_t acc_precision = ((int32_t *) t->op_params)[3];
+        params_str += "scale: "         + std::to_string(scale)         + ";";
+        params_str += "max_bias: "      + std::to_string(max_bias)      + ";";
+        params_str += "logit_softcap: " + std::to_string(logit_softcap) + ";";
+        params_str += "acc_precision: " + std::to_string(acc_precision);
+    }
     else if (t->op == GGML_OP_GLU) {
         const ggml_glu_op gop = ggml_get_glu_op(t);
         if (gop == GGML_GLU_OP_SWIGLU) {
@@ -300,7 +327,7 @@ template <bool abort_on_nan> bool common_debug_cb_eval(struct ggml_tensor * t, b
     }
 
     if (matches_filter) {
-        LOG("%s:%110s = %10s(%110s, %110s, %110s, %s)\n", // [%10s]
+        LOG("%s:%110s = %15s(%110s, %110s, %110s, %110s, %110s, %s)\n", // [%10s]
             __func__,
             // ggml_backend_buffer_name(t->buffer),
             t_str,
@@ -308,6 +335,8 @@ template <bool abort_on_nan> bool common_debug_cb_eval(struct ggml_tensor * t, b
             src0_str,
             src1_str,
             src2_str,
+            src3_str,
+            src4_str,
             params_str.c_str()
         );
     }
