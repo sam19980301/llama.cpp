@@ -65,6 +65,7 @@ bool ggml_ncp_device_supports_op(ggml_ncp_device_t dev, const struct ggml_tensor
         case GGML_OP_SET_ROWS:
         case GGML_OP_ROPE:
         case GGML_OP_SOFT_MAX:
+        case GGML_OP_FLASH_ATTN_EXT:
         case GGML_OP_GLU:
             return true;
         default:
