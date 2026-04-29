@@ -57,6 +57,7 @@ bool ggml_ncp_device_supports_op(ggml_ncp_device_t dev, const struct ggml_tensor
         case GGML_OP_MUL:
         case GGML_OP_RMS_NORM:
         case GGML_OP_MUL_MAT:
+        case GGML_OP_CPY:
         case GGML_OP_CONT:
         case GGML_OP_RESHAPE:
         case GGML_OP_VIEW:

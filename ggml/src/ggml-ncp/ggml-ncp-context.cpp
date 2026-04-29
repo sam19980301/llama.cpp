@@ -314,6 +314,57 @@ static void ggml_ncp_compute_forward_mul_mat(ggml_ncp & ctx, struct ggml_tensor 
     GGML_UNUSED(ctx);
 }
 
+// ggml_ncp_compute_forward_cpy
+
+template <typename T>
+void ggml_ncp_compute_forward_cpy_f(ggml_ncp & ctx, struct ggml_tensor * dst) {
+    const ggml_tensor * src0 = dst->src[0];
+
+    GGML_ASSERT(ggml_nelements(src0) == ggml_nelements(dst));
+
+    GGML_TENSOR_UNARY_OP_LOCALS
+
+    ggml_fp16_t * dst_ptr = (ggml_fp16_t *) dst->data;
+    for (int64_t i03 = 0; i03 < ne03; i03++) {
+        for (int64_t i02 = 0; i02 < ne02; i02++) {
+            for (int64_t i01 = 0; i01 < ne01; i01++) {
+                for (int64_t i00 = 0; i00 < ne00; i00++) {
+                    T * src_ptr = (T *) ((char *) src0->data + i00*nb00 + i01*nb01 + i02*nb02 + i03*nb03);
+                    if constexpr (std::is_same<T, float>::value) {
+                        *dst_ptr++ = GGML_COMPUTE_FP32_TO_FP16(*src_ptr);
+                    }
+                    else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
+                        *dst_ptr++ = *src_ptr;
+                    }
+                    else {
+                        static_assert(0);
+                    }
+                }
+            }
+        }
+    }
+
+    GGML_UNUSED(ctx);
+}
+
+static void ggml_ncp_compute_forward_cpy(ggml_ncp & ctx, struct ggml_tensor * dst) {
+
+    GGML_ASSERT(ggml_is_contiguous(dst) && dst->type == GGML_TYPE_F16);
+
+    const ggml_tensor * src0 = dst->src[0];
+
+    switch (src0->type) {
+        case GGML_TYPE_F32:
+            ggml_ncp_compute_forward_cpy_f<float>(ctx, dst);
+            break;
+        case GGML_TYPE_F16:
+            ggml_ncp_compute_forward_cpy_f<ggml_fp16_t>(ctx, dst);
+            break;
+        default:
+            GGML_ABORT("fatal error");
+    }
+}
+
 // ggml_ncp_compute_forward_cont
 
 template <typename T>
@@ -1192,6 +1243,9 @@ static bool ggml_ncp_compute_forward(ggml_ncp & ctx, struct ggml_tensor * dst) {
             break;
         case GGML_OP_MUL_MAT:
             ggml_ncp_compute_forward_mul_mat(ctx, dst);
+            break;
+        case GGML_OP_CPY:
+            ggml_ncp_compute_forward_cpy(ctx, dst);
             break;
         case GGML_OP_CONT:
             ggml_ncp_compute_forward_cont(ctx, dst);
