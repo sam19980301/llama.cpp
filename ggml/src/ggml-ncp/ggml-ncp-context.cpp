@@ -935,9 +935,13 @@ static void ggml_compute_forward_flash_attn_ext_f16_one_chunk(ggml_tensor * dst,
     GGML_ASSERT(!sinks);
     GGML_ASSERT(k->type == GGML_TYPE_F16);
     GGML_ASSERT(v->type == GGML_TYPE_F16);
-    GGML_ASSERT((DK + 2 * DV) * sizeof(float) + 1024 < 512 * 512);
 
-    uint8_t buffer[512 * 512] = { 0 };
+    GGML_ASSERT(DK < 1024);
+    GGML_ASSERT(DV < 1024);
+    GGML_ASSERT(nb1 < 1024 * sizeof(float));
+    float       VKQ32[1024] = { 0 }; // FP32 VKQ accumulator
+    ggml_fp16_t VKQ16[1024] = { 0 }; // (temporary) FP16 VKQ accumulator
+    ggml_fp16_t Q_q  [1024] = { 0 }; // (temporary) buffer for Q converted to quantized/FP16
 
     for (int ir = ir0; ir < ir1; ++ir) {
         // q indices
@@ -947,10 +951,6 @@ static void ggml_compute_forward_flash_attn_ext_f16_one_chunk(ggml_tensor * dst,
 
         float S = 0.0f;      // sum
         float M = -INFINITY; // maximum KQ value
-
-        float       * VKQ32 = (float       *) &(buffer[0]);   // FP32 VKQ accumulator
-        ggml_fp16_t * VKQ16 = (ggml_fp16_t *) (VKQ32 + 1*DV); // (temporary) FP16 VKQ accumulator
-        ggml_fp16_t * Q_q   = (ggml_fp16_t *) (VKQ32 + 2*DV); // (temporary) buffer for Q converted to quantized/FP16
 
         memset(VKQ16, 0, DV*sizeof(ggml_fp16_t));
 
