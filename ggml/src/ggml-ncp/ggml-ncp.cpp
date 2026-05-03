@@ -132,7 +132,7 @@ static size_t ggml_backend_ncp_buffer_type_get_alloc_size(ggml_backend_buffer_ty
 }
 
 static bool ggml_backend_ncp_buffer_type_is_host(ggml_backend_buffer_type_t buft) {
-    // TODO(sam)
+    // TODO(sam) may support cpy tensor if buffer type is not host (?)
     return true;
 
     GGML_UNUSED(buft);

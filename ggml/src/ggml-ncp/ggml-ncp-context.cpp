@@ -10,16 +10,13 @@ template<typename T>
 inline static void ggml_ncp_vec_scale_f(const int n, T * y, const float v) {
     // scalar
     for (int i = 0; i < n; ++i) {
+        static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
         if constexpr (std::is_same<T, float>::value) {
             y[i] *= v;
         }
         else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
             y[i] = GGML_COMPUTE_FP32_TO_FP16(GGML_COMPUTE_FP16_TO_FP32(y[i])*v);
         }
-        else {
-            static_assert(0);
-        }
-        
     }
 }
 
@@ -34,15 +31,13 @@ template<typename T>
 inline static void ggml_ncp_vec_max_f(const int n, float * s, const T * x) {
     float max = -INFINITY;
     for (int i = 0; i < n; ++i) {
+        static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
         if constexpr (std::is_same<T, float>::value) {
             max = MAX(max, x[i]);
         }
         else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
             max = MAX(max, GGML_COMPUTE_FP16_TO_FP32(x[i]));
         }
-        else {
-            static_assert(0);
-        }    
     }
     *s = max;
 }
@@ -50,14 +45,12 @@ inline static void ggml_ncp_vec_max_f(const int n, float * s, const T * x) {
 template<typename T>
 inline static void ggml_ncp_vec_mad_f(const int n, T * y, const T * x, const float v) {
     for (int i = 0; i < n; ++i) {
+        static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
         if constexpr (std::is_same<T, float>::value) {
             y[i] += x[i]*v;
         }
         else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
             y[i] = GGML_COMPUTE_FP32_TO_FP16(GGML_COMPUTE_FP16_TO_FP32(y[i]) + GGML_COMPUTE_FP16_TO_FP32(x[i])*v);
-        }
-        else {
-            static_assert(0);
         }
     }
 }
@@ -75,6 +68,11 @@ static inline void vec_binary_op_non_contiguous(const int64_t n, const int64_t n
     for (int i = 0; i < n; i++) {
         int i10 = i % ne10;
         const src1_t * y_ptr = (const src1_t *)((const char *)y + i10*nb10);
+        static_assert(
+            (std::is_same<src0_t, float>::value && std::is_same<src1_t, float>::value && std::is_same<dst_t, float>::value) ||
+            (std::is_same<src0_t, ggml_fp16_t>::value && std::is_same<src1_t, ggml_fp16_t>::value && std::is_same<dst_t, ggml_fp16_t>::value) ||
+            (std::is_same<src0_t, ggml_fp16_t>::value && std::is_same<src1_t, float>::value && std::is_same<dst_t, ggml_fp16_t>::value)
+        );
         if constexpr (std::is_same<src0_t, float>::value && std::is_same<src1_t, float>::value && std::is_same<dst_t, float>::value) {
             z[i] = op(x[i], *y_ptr);
         }
@@ -83,9 +81,6 @@ static inline void vec_binary_op_non_contiguous(const int64_t n, const int64_t n
         }
         else if constexpr (std::is_same<src0_t, ggml_fp16_t>::value && std::is_same<src1_t, float>::value && std::is_same<dst_t, ggml_fp16_t>::value) {
             z[i] = GGML_COMPUTE_FP32_TO_FP16(op(GGML_COMPUTE_FP16_TO_FP32(x[i]), *y_ptr));
-        }
-        else {
-            static_assert(0);
         }
     }
 }
@@ -177,14 +172,12 @@ static void ggml_ncp_compute_forward_rms_norm_f(ggml_ncp & ctx, struct ggml_tens
 
                 double sum = 0.0;
                 for (int64_t i00 = 0; i00 < ne00; i00++) {
+                    static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
                     if constexpr (std::is_same<T, float>::value) {
                         sum += (double)(x[i00] * x[i00]);
                     }
                     else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
                         sum += (double)(GGML_COMPUTE_FP16_TO_FP32(x[i00]) * GGML_COMPUTE_FP16_TO_FP32(x[i00]));
-                    }
-                    else {
-                        static_assert(0);
                     }
                 }
 
@@ -330,14 +323,12 @@ void ggml_ncp_compute_forward_cpy_f(ggml_ncp & ctx, struct ggml_tensor * dst) {
             for (int64_t i01 = 0; i01 < ne01; i01++) {
                 for (int64_t i00 = 0; i00 < ne00; i00++) {
                     T * src_ptr = (T *) ((char *) src0->data + i00*nb00 + i01*nb01 + i02*nb02 + i03*nb03);
+                    static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
                     if constexpr (std::is_same<T, float>::value) {
                         *dst_ptr++ = GGML_COMPUTE_FP32_TO_FP16(*src_ptr);
                     }
                     else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
                         *dst_ptr++ = *src_ptr;
-                    }
-                    else {
-                        static_assert(0);
                     }
                 }
             }
@@ -493,14 +484,12 @@ static void ggml_ncp_compute_forward_set_rows_f(ggml_ncp & ctx, struct ggml_tens
                 src0_t      * src0_ptr = (src0_t      *) ((char *) src0->data +  i*nb01 + i02*nb02 + i03*nb03);
                 ggml_fp16_t * dst_ptr  = (ggml_fp16_t *) ((char *) dst->data  + i1*nb1  + i02*nb2  + i03*nb3);
                 for (int64_t j = 0; j < nc; j++) {
+                    static_assert(std::is_same<src0_t, float>::value || std::is_same<src0_t, ggml_fp16_t>::value);
                     if constexpr (std::is_same<src0_t, float>::value) {
                         dst_ptr[j] = GGML_COMPUTE_FP32_TO_FP16(src0_ptr[j]);
                     }
                     else if constexpr (std::is_same<src0_t, ggml_fp16_t>::value) {
                         dst_ptr[j] = src0_ptr[j];
-                    }
-                    else {
-                        static_assert(0);
                     }
                 }
             }
@@ -542,6 +531,7 @@ template <typename T>
 static double ggml_vec_soft_max_f(const int n, T * y, const T * x, float max) {
     double sum = 0;
     for (int i = 0; i < n; ++i) {
+        static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
         if constexpr (std::is_same<T, float>::value) {
             float val = expf(x[i] - max);
             sum += (double)val;
@@ -552,10 +542,6 @@ static double ggml_vec_soft_max_f(const int n, T * y, const T * x, float max) {
             sum += (double)val;
             y[i] = GGML_COMPUTE_FP32_TO_FP16(val);
         }
-        else {
-            static_assert(0);
-        }
-
     }
     return sum;
 }
@@ -610,14 +596,12 @@ static void ggml_ncp_compute_forward_soft_max_f(ggml_ncp & ctx, struct ggml_tens
                 ggml_ncp_vec_scale_f<T>(ne00, wp, scale);
                 if (mp_f32) {
                     for (int i = 0; i < ne00; ++i) {
+                        static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
                         if constexpr (std::is_same<T, float>::value) {
                             wp[i] += mp_f32[i];
                         }
                         else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
                             wp[i] = GGML_COMPUTE_FP32_TO_FP16(GGML_COMPUTE_FP16_TO_FP32(wp[i]) + mp_f32[i]);
-                        }
-                        else {
-                            static_assert(0);
                         }
                     }
                 }
@@ -739,15 +723,14 @@ static void rotate_pairs(const int64_t n, const int64_t n_offset, const float * 
     const T * const src = src_data + ic;
     T * dst             = dst_data + ic;
 
+    static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
+
     float x0 = 0.0f;
     if constexpr (std::is_same<T, float>::value) {
         x0 = src[0];
     }
     else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
         x0 = GGML_COMPUTE_FP16_TO_FP32(src[0]);
-    }
-    else {
-        static_assert(0);
     }
 
     float x1 = 0.0f;
@@ -757,9 +740,6 @@ static void rotate_pairs(const int64_t n, const int64_t n_offset, const float * 
     else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
         x1 = GGML_COMPUTE_FP16_TO_FP32(src[n_offset]);
     }
-    else {
-        static_assert(0);
-    }
 
     if constexpr (std::is_same<T, float>::value) {
         dst[0]        = x0*cos_theta - x1*sin_theta;
@@ -768,9 +748,6 @@ static void rotate_pairs(const int64_t n, const int64_t n_offset, const float * 
     else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
         dst[0]        = GGML_COMPUTE_FP32_TO_FP16(x0*cos_theta - x1*sin_theta);
         dst[n_offset] = GGML_COMPUTE_FP32_TO_FP16(x0*sin_theta + x1*cos_theta);
-    }
-    else {
-        static_assert(0);
     }
   }
 }
@@ -1183,14 +1160,12 @@ static void ggml_ncp_compute_forward_swiglu_f(ggml_ncp & ctx, struct ggml_tensor
                     T       * dst_ptr  = (T  *)      ((char *)       dst->data  + i03*nb3  + i02*nb2  + i01*nb1  + i00*nb0 );
                     const T * src0_ptr = (const T *) ((const char *) src0->data + i03*nb03 + i02*nb02 + i01*nb01 + i00*nb00);
                     const T * src1_ptr = (const T *) ((const char *) src1->data + i03*nb13 + i02*nb12 + i01*nb11 + i00*nb10);
+                    static_assert(std::is_same<T, float>::value || std::is_same<T, ggml_fp16_t>::value);
                     if constexpr (std::is_same<T, float>::value) {
                         *dst_ptr = ggml_ncp_swiglu_f32(*src0_ptr, *src1_ptr);
                     }
                     else if constexpr (std::is_same<T, ggml_fp16_t>::value) {
                         *dst_ptr = GGML_COMPUTE_FP32_TO_FP16(ggml_ncp_swiglu_f32(GGML_COMPUTE_FP16_TO_FP32(*src0_ptr), GGML_COMPUTE_FP16_TO_FP32(*src1_ptr)));
-                    }
-                    else {
-                        static_assert(0);
                     }
                 }
             }
