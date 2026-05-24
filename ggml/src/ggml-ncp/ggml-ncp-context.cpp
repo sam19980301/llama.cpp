@@ -1732,9 +1732,19 @@ static void ggml_ncp_graph_infer_layout(ggml_ncp_t ctx, struct ggml_cgraph * gf)
     GGML_UNUSED(ctx);
 }
 
-enum ggml_status ggml_ncp_graph_compute(ggml_ncp_t ctx, struct ggml_cgraph * gf) {
-    // TODO(sam): consider op fusion
+static bool ggml_ncp_can_fuse(const struct ggml_cgraph * gf, int node_idx, std::initializer_list<enum ggml_op> ops) {
+    if (!ggml_can_fuse(gf, node_idx, ops)) {
+        return false;
+    }
 
+    if (ops.size() == 2 && ops.begin()[0] == GGML_OP_RMS_NORM && ops.begin()[1] == GGML_OP_MUL) {
+        return true;
+    }
+
+    return false;
+}
+
+enum ggml_status ggml_ncp_graph_compute(ggml_ncp_t ctx, struct ggml_cgraph * gf) {
     // TODO(sam): somewhat similar to graph plan, may change to be compatible with it
     ggml_ncp_graph_infer_layout(ctx, gf);
 
@@ -1746,6 +1756,24 @@ enum ggml_status ggml_ncp_graph_compute(ggml_ncp_t ctx, struct ggml_cgraph * gf)
         }
 
         if ((node->flags & GGML_TENSOR_FLAG_COMPUTE) == 0) {
+            continue;
+        }
+        
+        // make sure all rms norm is fusible
+        if (node->op == GGML_OP_RMS_NORM) {
+            GGML_ASSERT(ggml_ncp_can_fuse(gf, i, { GGML_OP_RMS_NORM, GGML_OP_MUL }));
+        }
+        if (ggml_ncp_can_fuse(gf, i, { GGML_OP_RMS_NORM, GGML_OP_MUL })) {
+            // TODO(sam): replace with actual fused kernel
+            for (int j = i; j < i+2; j++) {
+                ggml_tensor * fused_node = gf->nodes[j];
+                bool ok = ggml_ncp_compute_forward(*ctx, fused_node);
+                if (!ok) {
+                    GGML_LOG_ERROR("%s: op not supported %s (%s)\n", __func__, fused_node->name, ggml_op_name(fused_node->op));
+                }
+                GGML_ASSERT(ok);
+            }
+            i++;
             continue;
         }
 
