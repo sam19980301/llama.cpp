@@ -149,6 +149,9 @@ template <bool abort_on_nan> bool common_debug_cb_eval(struct ggml_tensor * t, b
         }
     }
 
+    // TODO(sam): callback changes is moved into ncp backend
+    // since callback will affect the scheduler to split the graph node by node, which affect the layout inference
+    // should restore to the original implementation
     char t_str[128] = { 0 };
     if (t) {
         snprintf(t_str, sizeof(t_str), "%s{%s}{%s}(%s)", t->name, common_ggml_ne_string(t).c_str(), common_ggml_nb_string(t).c_str(), ggml_type_name(t->type));

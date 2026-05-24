@@ -22,6 +22,10 @@ static int g_devices = 1;
 static void ggml_backend_ncp_buffer_free_buffer(ggml_backend_buffer_t buffer) {
     ggml_ncp_buffer_t ctx = (ggml_ncp_buffer_t)buffer->context;
 
+    for (ggml_ncp_tensor_extra * tensor_extra : ctx->tensor_extras) {
+        delete tensor_extra;
+    }
+
     ggml_ncp_buffer_free(ctx);
 }
 
@@ -29,6 +33,18 @@ static void * ggml_backend_ncp_buffer_get_base(ggml_backend_buffer_t buffer) {
     ggml_ncp_buffer_t ctx = (ggml_ncp_buffer_t)buffer->context;
 
     return ggml_ncp_buffer_get_base(ctx);
+}
+
+static enum ggml_status ggml_backend_ncp_buffer_init_tensor(ggml_backend_buffer_t buffer, ggml_tensor * tensor) {
+    ggml_ncp_buffer_t ctx = (ggml_ncp_buffer_t)buffer->context;
+
+    ggml_ncp_tensor_extra * extra = new ggml_ncp_tensor_extra{
+        /* .ggml_ncp_buffer_layout  = */ GGML_NCP_LAYOUT_UNINITIALIZED,
+    };
+    ctx->tensor_extras.push_back(extra);
+    tensor->extra = extra;
+
+    return GGML_STATUS_SUCCESS;
 }
 
 static void ggml_backend_ncp_buffer_memset_tensor(ggml_backend_buffer_t buffer, ggml_tensor * tensor, uint8_t value, size_t offset, size_t size) {
@@ -71,7 +87,7 @@ static void ggml_backend_ncp_buffer_clear(ggml_backend_buffer_t buffer, uint8_t 
 static ggml_backend_buffer_i ggml_backend_ncp_buffer_i = {
     /* .free_buffer     = */ ggml_backend_ncp_buffer_free_buffer,
     /* .get_base        = */ ggml_backend_ncp_buffer_get_base,
-    /* .init_tensor     = */ NULL, // TODO(sam)
+    /* .init_tensor     = */ ggml_backend_ncp_buffer_init_tensor,
     /* .memset_tensor   = */ ggml_backend_ncp_buffer_memset_tensor,
     /* .set_tensor      = */ ggml_backend_ncp_buffer_set_tensor,
     /* .get_tensor      = */ ggml_backend_ncp_buffer_get_tensor,

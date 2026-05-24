@@ -2,10 +2,6 @@
 
 #include "ggml-ncp-device.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // backend context
 
 struct ggml_ncp;
@@ -27,7 +23,3 @@ void ggml_ncp_free(ggml_ncp_t ctx);
 const char * ggml_ncp_get_name(ggml_ncp_t ctx);
 
 enum ggml_status ggml_ncp_graph_compute(ggml_ncp_t ctx, struct ggml_cgraph * gf);
-
-#ifdef __cplusplus
-}
-#endif
