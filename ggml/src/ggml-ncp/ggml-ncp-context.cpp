@@ -1,3 +1,6 @@
+#define GGML_COMMON_DECL_CPP
+#include "ggml-common.h"
+
 #include "ggml-ncp-context.h"
 
 #include "ggml-backend-impl.h"
@@ -267,9 +270,25 @@ static void ggml_ncp_compute_forward_mul_mat(ggml_ncp & ctx, struct ggml_tensor 
                         GGML_ASSERT(src0->type == GGML_TYPE_Q4_0 || src0->type == GGML_TYPE_F16);
                         const ggml_type_traits * src0_traits = ggml_get_type_traits(src0->type);
                         GGML_ASSERT(32 % src0_traits->blck_size == 0);
-                        for (int64_t j = 0; j < 32; j += src0_traits->blck_size) {
-                            const char * src0_ptr = (const char *) src0->data + i03*nb03 + i02*nb02 + i01*nb01 + ((i+j)/src0_traits->blck_size)*nb00;
-                            src0_traits->to_float(src0_ptr, src0_f32 + j, src0_traits->blck_size);
+                        if (src0->type == GGML_TYPE_Q4_0) {
+                            // Q4_0 data is repacked
+                            const block_q4_0 * src0_ptr = (const block_q4_0 *)((const char *) src0->data + i03*nb03 + i02*nb02 + i01*nb01 + ((i/src0_traits->blck_size)*nb00));
+                            const float d = GGML_FP16_TO_FP32(src0_ptr->d);
+                            for (int j = 0; j < QK4_0/2; ++j) {
+                                // interpret as signed int4
+                                int x0 = (src0_ptr->qs[j] & 0x0F);
+                                int x1 = (src0_ptr->qs[j] >>   4);
+                                x0 = (x0 & 0x8) ? x0 - 16 : x0;
+                                x1 = (x1 & 0x8) ? x1 - 16 : x1;
+                                src0_f32[j + 0      ] = x0*d;
+                                src0_f32[j + QK4_0/2] = x1*d;
+                            }
+                        }
+                        else {
+                            for (int64_t j = 0; j < 32; j += src0_traits->blck_size) {
+                                const char * src0_ptr = (const char *) src0->data + i03*nb03 + i02*nb02 + i01*nb01 + ((i+j)/src0_traits->blck_size)*nb00;
+                                src0_traits->to_float(src0_ptr, src0_f32 + j, src0_traits->blck_size);
+                            }                            
                         }
 
                         float src1_f32[32];

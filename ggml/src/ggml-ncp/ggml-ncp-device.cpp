@@ -1,5 +1,8 @@
 #include "ggml-ncp.h"
 
+#define GGML_COMMON_DECL_CPP
+#include "ggml-common.h"
+
 #include "ggml-ncp-device.h"
 
 #include "ggml-impl.h"
@@ -106,13 +109,41 @@ void ggml_ncp_buffer_memset_tensor(ggml_ncp_buffer_t buf, struct ggml_tensor * t
     GGML_UNUSED(buf);
 }
 
+static void ggml_ncp_buffer_repack_q4_0(ggml_tensor * tensor, const void * data, size_t size) {
+    GGML_ASSERT(tensor->type == GGML_TYPE_Q4_0);
+    GGML_ASSERT(size == ggml_nbytes(tensor));
+    GGML_ASSERT(ggml_is_contiguous(tensor));
+
+    memcpy((char *) tensor->data, data, size);
+
+    const int64_t n_blocks = size / sizeof(block_q4_0);
+    const block_q4_0 * src = (const block_q4_0 *) data;
+          block_q4_0 * dst = (      block_q4_0 *) tensor->data;
+
+    for (int64_t b = 0; b < n_blocks; b++) {
+        for (int i = 0; i < QK4_0 / 2; i++) {
+            dst[b].qs[i] = src[b].qs[i] ^ 0x88; // excess-8 to signed int4
+        }
+    }
+}
+
 void ggml_ncp_buffer_set_tensor(ggml_ncp_buffer_t buf, struct ggml_tensor * tensor, const void * data, size_t offset, size_t size) {
+    if (tensor->type == GGML_TYPE_Q4_0) {
+        GGML_ASSERT(offset == 0);
+        GGML_ASSERT(offset + size == ggml_nbytes(tensor));
+        ggml_ncp_buffer_repack_q4_0(tensor, data, size);
+        return;
+    }
+
     memcpy((char *) tensor->data + offset, data, size);
 
     GGML_UNUSED(buf);
 }
 
 void ggml_ncp_buffer_get_tensor(ggml_ncp_buffer_t buf, const struct ggml_tensor * tensor, void * data, size_t offset, size_t size) {
+    if (tensor->type == GGML_TYPE_Q4_0) {
+        GGML_ASSERT(0); // TODO(sam): support un-repack for q4_0 data?
+    }
     memcpy(data, (const char *) tensor->data + offset, size);
 
     GGML_UNUSED(buf);
